@@ -4,3 +4,4 @@ dist/
 .claude/
 node_modules/
 .mcp.json
+.DS_Store
