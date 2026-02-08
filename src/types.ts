@@ -18,6 +18,7 @@ export type ErrorCode =
   | "CDP_DISCONNECTED"
   | "PAGE_CRASHED"
   | "ACTION_FAILED"
+  | "SCRIPT_ERROR"
   | "FILL_FAILED"
   | "WAIT_TIMEOUT";
 
@@ -53,6 +54,10 @@ export interface ActionResult {
   warnings: string[];
   resolvedBy?: "backendNodeId" | "domPath";
   timingMs: number;
+}
+
+export interface ScriptResult extends ActionResult {
+  result?: unknown;
 }
 
 export interface SnapshotResult {

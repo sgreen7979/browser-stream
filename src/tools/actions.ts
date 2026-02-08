@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { click, fill, navigate, pressKey, scroll } from "../actions/engine.js";
+import { click, fill, navigate, pressKey, scroll, executeScript } from "../actions/engine.js";
 import { ensureConnected } from "../cdp/client.js";
 
 export function registerActionTools(server: McpServer): void {
@@ -70,6 +70,18 @@ export function registerActionTools(server: McpServer): void {
       await ensureConnected();
       return {
         content: [{ type: "text", text: JSON.stringify(await scroll({ ref, direction, amount })) }],
+      };
+    },
+  );
+
+  server.tool(
+    "browser_execute_script",
+    "Execute JavaScript in the browser page context. Returns the script result and action consequences.",
+    { script: z.string().describe("JavaScript code to execute in the page context") },
+    async ({ script }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await executeScript(script)) }],
       };
     },
   );

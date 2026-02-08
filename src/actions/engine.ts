@@ -1,6 +1,6 @@
 import type { CDPClient } from "../cdp/client.js";
 import type {
-  ActionResult, SnapshotResult, ErrorDetail, PageInfo,
+  ActionResult, SnapshotResult, ErrorDetail, PageInfo, ScriptResult,
   Consequence, SnapshotData,
 } from "../types.js";
 import { getClient, isCrashed } from "../cdp/client.js";
@@ -495,6 +495,88 @@ export async function pressKey(keyStr: string): Promise<ActionResult> {
     errors: [],
     warnings,
     timingMs: Date.now() - start,
+  };
+}
+
+export async function executeScript(script: string): Promise<ScriptResult> {
+  const start = Date.now();
+  const actionDesc = "execute_script";
+  let cdp: CDPClient;
+  try {
+    cdp = getClient();
+  } catch {
+    return errorAction(actionDesc, cdpError(), Date.now() - start);
+  }
+
+  let preSnapshot: SnapshotData;
+  try {
+    preSnapshot = await takeSnapshot(cdp, { keepExistingRefs: true });
+  } catch (e: any) {
+    return errorAction(
+      actionDesc,
+      [{ code: "ACTION_FAILED", message: `Pre-snapshot failed: ${e.message}` }],
+      Date.now() - start,
+    );
+  }
+
+  const actionStartTime = Date.now() / 1000;
+  let scriptResult: unknown;
+
+  try {
+    const expression = `(async () => { ${script} })()`;
+    const evalResult = await cdp.send("Runtime.evaluate", {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    });
+    if (evalResult.exceptionDetails) {
+      const message =
+        evalResult.exceptionDetails.exception?.description
+        || evalResult.exceptionDetails.text
+        || "Script execution failed";
+      return errorAction(
+        actionDesc,
+        [{ code: "SCRIPT_ERROR", message }],
+        Date.now() - start,
+      );
+    }
+    scriptResult = evalResult.result?.value;
+  } catch (e: any) {
+    return errorAction(actionDesc, [{ code: "ACTION_FAILED", message: e.message }], Date.now() - start);
+  }
+
+  const stability = await waitForStability(cdp, actionStartTime);
+
+  let postSnapshot: SnapshotData;
+  try {
+    postSnapshot = await takeSnapshot(cdp);
+  } catch (e: any) {
+    return errorAction(
+      actionDesc,
+      [{ code: "ACTION_FAILED", message: `Post-snapshot failed: ${e.message}` }],
+      Date.now() - start,
+    );
+  }
+
+  const consequences = diffSnapshots(preSnapshot, postSnapshot, stability.networkEvents);
+  const warnings: string[] = [];
+  if (stability.timedOut) {
+    warnings.push("STABILITY_TIMEOUT: DOM did not settle within 3000ms");
+  }
+
+  return {
+    version: 1,
+    action: actionDesc,
+    ok: true,
+    page: postSnapshot.page,
+    consequences,
+    newInteractiveElements: postSnapshot.elements
+      .filter((el) => consequences.some((c) => c.type === "appeared" && c.ref === el.ref))
+      .map((el) => el.compactLine),
+    errors: [],
+    warnings,
+    timingMs: Date.now() - start,
+    result: scriptResult,
   };
 }
 
