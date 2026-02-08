@@ -3,3 +3,4 @@ dist/
 .specstory/
 .claude/
 node_modules/
+.mcp.json
