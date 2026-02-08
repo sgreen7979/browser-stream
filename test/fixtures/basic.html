@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>browser-stream test fixture</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .hidden { display: none; }
+    #success { color: green; font-weight: bold; }
+    #delayed-btn { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Test Form</h1>
+
+  <form id="test-form">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" placeholder="Enter name" />
+
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" placeholder="Enter email" />
+
+    <button type="submit" id="submit-btn">Submit</button>
+  </form>
+
+  <div id="success" class="hidden">
+    <p>Form submitted successfully!</p>
+    <span id="submitted-name"></span>
+  </div>
+
+  <a href="#" id="toggle-link">Toggle Details</a>
+  <div id="details" class="hidden">
+    <p>These are the hidden details.</p>
+    <button id="details-btn">Details Action</button>
+  </div>
+
+  <script>
+    // Form submit: hide form, show success, trigger delayed button
+    document.getElementById('test-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var name = document.getElementById('name').value;
+      document.getElementById('test-form').classList.add('hidden');
+      document.getElementById('success').classList.remove('hidden');
+      document.getElementById('submitted-name').textContent = 'Hello, ' + name + '!';
+
+      // Delayed button appears after 500ms
+      setTimeout(function() {
+        var btn = document.createElement('button');
+        btn.id = 'delayed-btn';
+        btn.textContent = 'Continue';
+        document.getElementById('success').appendChild(btn);
+      }, 500);
+    });
+
+    // Toggle visibility
+    document.getElementById('toggle-link').addEventListener('click', function(e) {
+      e.preventDefault();
+      var details = document.getElementById('details');
+      details.classList.toggle('hidden');
+    });
+  </script>
+</body>
+</html>

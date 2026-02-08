@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>browser-stream scroll fixture</title>
+    <style>
+      :root {
+        font-family: Arial, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+      }
+      h1, h2 {
+        margin: 12px 0;
+      }
+      .scroll-box {
+        height: 300px;
+        overflow-y: auto;
+        border: 1px solid #999;
+        padding: 8px;
+        margin-bottom: 16px;
+      }
+      .churn-box {
+        height: 220px;
+        overflow-y: auto;
+        border: 1px solid #c55;
+        padding: 8px;
+        margin-bottom: 16px;
+      }
+      .no-scroll {
+        height: 150px;
+        overflow-y: auto;
+        border: 1px solid #5a5;
+        padding: 8px;
+        margin-bottom: 16px;
+      }
+      .item {
+        display: block;
+        padding: 6px 8px;
+        margin: 4px 0;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+      }
+      #viewport-spacer {
+        height: 1200px;
+        background: linear-gradient(#fff, #f0f0f0);
+        margin-bottom: 16px;
+      }
+      #lazy-appears {
+        display: none;
+        padding: 8px;
+        background: #e7f7ff;
+        border: 1px solid #8ac;
+        margin-bottom: 16px;
+      }
+      #shift-target {
+        height: 60px;
+        background: #ffe9d6;
+        border: 1px solid #d89;
+        margin-bottom: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Scroll Fixture</h1>
+
+    <div id="shift-target">Layout shift target</div>
+    <div id="viewport-spacer"></div>
+    <button class="item" id="lazy-appears">Lazy Appears</button>
+
+    <h2>Scroll Box</h2>
+    <div id="scroll-box" class="scroll-box">
+      <button class="item" id="scroll-item-1">Scroll Item 1</button>
+    </div>
+
+    <h2>Churn Box</h2>
+    <div id="churn-box" class="churn-box"></div>
+
+    <h2>Non-scrollable Box</h2>
+    <div id="no-scroll" class="no-scroll">
+      <button class="item" id="no-scroll-button">No Scroll Button</button>
+      <div class="item">Short content</div>
+    </div>
+
+    <script>
+      (function () {
+        const scrollBox = document.getElementById("scroll-box");
+        for (let i = 2; i <= 50; i += 1) {
+          const div = document.createElement("div");
+          div.className = "item";
+          div.textContent = `Scroll Item ${i}`;
+          scrollBox.appendChild(div);
+        }
+
+        const churnBox = document.getElementById("churn-box");
+        const churnItems = Array.from({ length: 30 }, (_, i) => `Churn Item ${i + 1}`);
+
+        function renderChurn() {
+          churnBox.textContent = "";
+          const frag = document.createDocumentFragment();
+          for (const text of churnItems) {
+            const btn = document.createElement("button");
+            btn.className = "item";
+            btn.textContent = text;
+            frag.appendChild(btn);
+          }
+          churnBox.appendChild(frag);
+        }
+
+        renderChurn();
+        churnBox.addEventListener("scroll", () => {
+          renderChurn();
+        });
+
+        const lazy = document.getElementById("lazy-appears");
+        let shifted = false;
+        const shiftTarget = document.getElementById("shift-target");
+
+        window.addEventListener("scroll", () => {
+          if (window.scrollY > 120) {
+            lazy.style.display = "block";
+          }
+          if (!shifted && window.scrollY > 160) {
+            shifted = true;
+            shiftTarget.style.height = "180px";
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
