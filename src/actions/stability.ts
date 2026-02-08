@@ -1,6 +1,52 @@
 import type { CDPClient } from "../cdp/client.js";
 import type { NetworkEvent, StabilityResult, MutationRecord } from "../types.js";
 
+/**
+ * Standalone mutation tracker that can be started before an action
+ * to capture synchronous DOM mutations (e.g., scroll-triggered re-renders).
+ * Counts per-parent insertions/removals to detect churn (remove+re-add pairs).
+ */
+export function createMutationTracker(cdp: CDPClient) {
+  const parentRemovals = new Map<number, number>();
+  const parentInsertions = new Map<number, number>();
+
+  const onInserted = (params: any) => {
+    const parentId = params.parentNodeId;
+    parentInsertions.set(parentId, (parentInsertions.get(parentId) || 0) + 1);
+  };
+  const onRemoved = (params: any) => {
+    const parentId = params.parentNodeId;
+    parentRemovals.set(parentId, (parentRemovals.get(parentId) || 0) + 1);
+  };
+
+  cdp.on("DOM.childNodeInserted", onInserted);
+  cdp.on("DOM.childNodeRemoved", onRemoved);
+
+  return {
+    stop(): MutationRecord {
+      cdp.off("DOM.childNodeInserted", onInserted);
+      cdp.off("DOM.childNodeRemoved", onRemoved);
+
+      let insertions = 0;
+      let removals = 0;
+      let churnCount = 0;
+
+      for (const count of parentInsertions.values()) insertions += count;
+      for (const count of parentRemovals.values()) removals += count;
+
+      const parents = new Set([...parentInsertions.keys(), ...parentRemovals.keys()]);
+      for (const parentId of parents) {
+        churnCount += Math.min(
+          parentInsertions.get(parentId) || 0,
+          parentRemovals.get(parentId) || 0,
+        );
+      }
+
+      return { insertions, removals, churnCount };
+    },
+  };
+}
+
 const DEBOUNCE_MS = 200;
 const HARD_CAP_MS = 3000;
 

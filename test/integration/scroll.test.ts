@@ -85,12 +85,15 @@ describe("browser_scroll", () => {
     const nav = await navigate(baseUrl);
     const ref = findRef(nav.elements, "Scroll Item 1");
 
-    const first = await scroll({ ref, direction: "down", amount: "to-bottom" });
-    expect(first.ok).toBe(true);
+    // Pre-scroll the container to bottom via evalJson (doesn't invalidate refs)
+    await evalJson<boolean>(
+      "(() => { var el = document.getElementById('scroll-box'); el.scrollTop = el.scrollHeight; return true; })()",
+    );
 
-    const second = await scroll({ ref, direction: "up", amount: "to-bottom" });
-    expect(second.ok).toBe(true);
-    expect(second.warnings).toContain("SCROLL_AT_BOUNDARY: Already at bottom");
+    // Now scroll to-bottom — container is already there, should get boundary warning
+    const result = await scroll({ ref, direction: "down", amount: "to-bottom" });
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain("SCROLL_AT_BOUNDARY: Already at bottom");
   });
 
   it("respects to-top and emits boundary warning when already at top", async () => {
@@ -129,12 +132,16 @@ describe("browser_scroll", () => {
     const nav = await navigate(baseUrl);
     const ref = findRef(nav.elements, "No Scroll Button");
 
+    // Hide all large content so viewport scrollHeight <= clientHeight.
+    // overflow:hidden alone doesn't prevent programmatic scrollTop changes,
+    // so we must actually reduce the content height below the viewport.
     await evalJson<boolean>(
       "(() => {\n" +
-        "  const spacer = document.getElementById('viewport-spacer');\n" +
-        "  spacer.style.height = '0px';\n" +
-        "  document.documentElement.style.overflow = 'hidden';\n" +
-        "  document.body.style.overflow = 'hidden';\n" +
+        "  document.getElementById('viewport-spacer').style.display = 'none';\n" +
+        "  document.getElementById('scroll-box').style.display = 'none';\n" +
+        "  document.getElementById('churn-box').style.display = 'none';\n" +
+        "  document.getElementById('shift-target').style.display = 'none';\n" +
+        "  document.querySelectorAll('h1, h2').forEach(function(el) { el.style.display = 'none'; });\n" +
         "  window.scrollTo(0, 0);\n" +
         "  return true;\n" +
         "})()",

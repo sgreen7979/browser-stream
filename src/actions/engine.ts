@@ -5,7 +5,7 @@ import type {
 } from "../types.js";
 import { getClient, isCrashed } from "../cdp/client.js";
 import { ensureInteractable } from "./interactable.js";
-import { waitForStability } from "./stability.js";
+import { waitForStability, createMutationTracker } from "./stability.js";
 import { takeSnapshot, snapshotDataToResult, errorSnapshotResult, getPageInfo } from "../state/snapshot.js";
 import { diffSnapshots } from "../state/differ.js";
 import { markAllStale, resolveRef } from "../state/ref-map.js";
@@ -556,6 +556,20 @@ export async function scroll(opts: {
     layoutShiftEnabled = false;
   }
 
+  // Expand the full DOM tree so the DOM domain tracks all nodes.
+  // Without this, DOM.childNodeRemoved/Inserted events only fire for nodes
+  // previously "discovered" by the domain (e.g., via DOM.getDocument or querySelectorAll).
+  // Dynamically created nodes (React components, virtualized lists) would be invisible.
+  try {
+    await cdp.send("DOM.getDocument", { depth: -1 });
+  } catch {
+    // Best-effort — churn detection degrades gracefully
+  }
+
+  // Start mutation tracker BEFORE scroll to catch synchronous DOM mutations
+  // (e.g., React re-renders triggered by scroll events fire during scrollTop assignment)
+  const mutationTracker = createMutationTracker(cdp);
+
   let scrollResult: {
     scrollTopBefore: number;
     scrollTopAfter: number;
@@ -564,7 +578,7 @@ export async function scroll(opts: {
     containerTag: string;
     fallback: boolean;
   } | null = null;
-  let stability: { timedOut: boolean; networkEvents: any[]; mutations?: { churnCount: number } } | null = null;
+  let stability: { timedOut: boolean; networkEvents: any[] } | null = null;
   let layoutShiftData: { cls: number; shiftCount: number } | null = null;
   let actionError: ErrorDetail[] | null = null;
 
@@ -596,7 +610,7 @@ export async function scroll(opts: {
       throw new Error("Scroll failed: no result");
     }
 
-    stability = await waitForStability(cdp, actionStartTime, { trackMutations: true });
+    stability = await waitForStability(cdp, actionStartTime);
   } catch (e: any) {
     actionError = [{ code: "ACTION_FAILED", message: e.message }];
   } finally {
@@ -608,6 +622,9 @@ export async function scroll(opts: {
       }
     }
   }
+
+  // Stop mutation tracker after stability wait (captures all mutations including synchronous ones)
+  const mutations = mutationTracker.stop();
 
   if (actionError) {
     return errorAction(actionDesc, actionError, Date.now() - start);
@@ -625,11 +642,11 @@ export async function scroll(opts: {
   }
 
   const consequences = diffSnapshots(preSnapshot, postSnapshot, stability?.networkEvents || []);
-  if (stability?.mutations && stability.mutations.churnCount > 0) {
+  if (mutations.churnCount > 0) {
     consequences.push({
       type: "dom-churn",
-      desc: `DOM churn detected: ${stability.mutations.churnCount} remove/re-add pairs`,
-      churnCount: stability.mutations.churnCount,
+      desc: `DOM churn detected: ${mutations.churnCount} remove/re-add pairs`,
+      churnCount: mutations.churnCount,
     });
   }
   if (layoutShiftData && layoutShiftData.cls > 0) {
