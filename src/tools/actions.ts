@@ -1,15 +1,19 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { click, fill, navigate, pressKey, scroll } from "../actions/engine.js";
+import { ensureConnected } from "../cdp/client.js";
 
 export function registerActionTools(server: McpServer): void {
   server.tool(
     "browser_click",
     "Click an element by ref. Returns action consequences.",
     { ref: z.string().describe("Element ref, e.g. @e5") },
-    async ({ ref }) => ({
-      content: [{ type: "text", text: JSON.stringify(await click(ref)) }],
-    }),
+    async ({ ref }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await click(ref)) }],
+      };
+    },
   );
 
   server.tool(
@@ -19,27 +23,36 @@ export function registerActionTools(server: McpServer): void {
       ref: z.string().describe("Element ref, e.g. @e3"),
       value: z.string().describe("Value to fill"),
     },
-    async ({ ref, value }) => ({
-      content: [{ type: "text", text: JSON.stringify(await fill(ref, value)) }],
-    }),
+    async ({ ref, value }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await fill(ref, value)) }],
+      };
+    },
   );
 
   server.tool(
     "browser_navigate",
     "Navigate to a URL. Returns snapshot of the new page.",
     { url: z.string().describe("URL to navigate to") },
-    async ({ url }) => ({
-      content: [{ type: "text", text: JSON.stringify(await navigate(url)) }],
-    }),
+    async ({ url }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await navigate(url)) }],
+      };
+    },
   );
 
   server.tool(
     "browser_press_key",
     "Press a key or key combination. Returns action consequences.",
     { key: z.string().describe('Key or combo, e.g. "Enter", "Control+a"') },
-    async ({ key }) => ({
-      content: [{ type: "text", text: JSON.stringify(await pressKey(key)) }],
-    }),
+    async ({ key }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await pressKey(key)) }],
+      };
+    },
   );
 
   server.tool(
@@ -53,8 +66,11 @@ export function registerActionTools(server: McpServer): void {
         .optional()
         .describe('Amount: "page", "to-top", "to-bottom", or pixel count'),
     },
-    async ({ ref, direction, amount }) => ({
-      content: [{ type: "text", text: JSON.stringify(await scroll({ ref, direction, amount })) }],
-    }),
+    async ({ ref, direction, amount }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await scroll({ ref, direction, amount })) }],
+      };
+    },
   );
 }

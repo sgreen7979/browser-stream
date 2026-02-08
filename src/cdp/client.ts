@@ -20,6 +20,16 @@ interface LaunchedChrome {
 let chrome: LaunchedChrome | null = null;
 let client: CDPClient | null = null;
 let crashed = false;
+let pendingCdpUrl: string | undefined;
+
+export function setConnectionConfig(cdpUrl?: string): void {
+  pendingCdpUrl = cdpUrl;
+}
+
+export async function ensureConnected(): Promise<void> {
+  if (client && !crashed) return;
+  await connect(pendingCdpUrl);
+}
 
 export function isCrashed(): boolean {
   return crashed;

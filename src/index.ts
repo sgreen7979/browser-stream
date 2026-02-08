@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { connect, disconnect } from "./cdp/client.js";
+import { disconnect, setConnectionConfig } from "./cdp/client.js";
 import { registerActionTools } from "./tools/actions.js";
 import { registerObservationTools } from "./tools/observation.js";
 
@@ -25,10 +25,8 @@ async function main(): Promise<void> {
   registerActionTools(server);
   registerObservationTools(server);
 
-  // Connect to Chrome
-  console.error(`[browser-stream] Connecting to Chrome${cdpUrl ? ` at ${cdpUrl}` : " (launching)"}...`);
-  await connect(cdpUrl);
-  console.error("[browser-stream] Chrome connected");
+  // Store CDP config for lazy connection
+  setConnectionConfig(cdpUrl);
 
   // Start MCP server on stdio
   const transport = new StdioServerTransport();

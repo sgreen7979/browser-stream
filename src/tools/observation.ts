@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getClient, isCrashed } from "../cdp/client.js";
+import { ensureConnected, getClient, isCrashed } from "../cdp/client.js";
 import { takeSnapshot, snapshotDataToResult, errorSnapshotResult } from "../state/snapshot.js";
 import { waitFor } from "../actions/engine.js";
 
@@ -11,6 +11,7 @@ export function registerObservationTools(server: McpServer): void {
     async () => {
       const start = Date.now();
       try {
+        await ensureConnected();
         const cdp = getClient();
         const data = await takeSnapshot(cdp);
         return {
@@ -35,8 +36,11 @@ export function registerObservationTools(server: McpServer): void {
       ref: z.string().optional().describe("Ref to wait for (e.g. @e5)"),
       timeout: z.number().optional().describe("Timeout in ms (default 10000)"),
     },
-    async ({ text, ref, timeout }) => ({
-      content: [{ type: "text", text: JSON.stringify(await waitFor({ text, ref, timeout })) }],
-    }),
+    async ({ text, ref, timeout }) => {
+      await ensureConnected();
+      return {
+        content: [{ type: "text", text: JSON.stringify(await waitFor({ text, ref, timeout })) }],
+      };
+    },
   );
 }
